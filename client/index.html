@@ -1,13 +1,258 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + React</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Io Game</title>
+		<script src="https://cdn.jsdelivr.net/npm/phaser@3.90.0/dist/phaser.min.js"></script>
+		<style type="text/css">
+			body {
+				margin: 0;
+			}
+			canvas {
+				cursor: none;
+			}
+		</style>
+	</head>
+	<body>
+		<script type="text/javascript">
+			var config = {
+				type: Phaser.AUTO,
+				scale: {
+					mode: Phaser.Scale.RESIZE,
+					autoCenter: Phaser.Scale.CENTER_BOTH,
+					width: window.innerWidth,
+					height: window.innerHeight,
+				},
+				physics: {
+					default: 'arcade',
+					arcade: {
+						gravity: { y: 300 },
+						debug: false,
+					},
+				},
+				scene: {
+					preload: preload,
+					create: create,
+					update: update,
+				},
+				canvasStyle: `display: block; width: 100%; height: 100%;`,
+				autoFocus: true,
+			};
+
+			var player;
+			var stars;
+			var bombs;
+			var platforms;
+			var cursors;
+			var score = 0;
+			var gameOver = false;
+			var scoreText;
+			var cursorTarget;
+			var cameraTarget = { x: 0, y: 0 };
+			var enemies;
+
+			var game = new Phaser.Game(config);
+
+			function preload() {
+				this.load.image('sky', 'assets/sky.png');
+				this.load.image('ground', 'assets/platform.png');
+				this.load.spritesheet('dude', 'assets/dude.png', { frameWidth: 32, frameHeight: 48 });
+			}
+
+			function create() {
+				// Add sky background
+				const width = this.scale.width;
+				const height = this.scale.height;
+				this.bg = this.add.image(width / 2, height / 2, 'sky');
+				this.bg.setScrollFactor(0);
+				this.bg.setDepth(-1000);
+				// Scale sky to fill screen
+				const scaleX = width / this.bg.width;
+				const scaleY = height / this.bg.height;
+				const scale = Math.max(scaleX, scaleY);
+				this.bg.setScale(scale);
+
+				platforms = this.physics.add.staticGroup();
+
+				platforms.create(400, 568, 'ground').setScale(2).refreshBody();
+
+				platforms.create(600, 400, 'ground');
+				platforms.create(50, 250, 'ground');
+				platforms.create(750, 220, 'ground');
+
+				player = this.physics.add.sprite(100, 450, 'dude');
+
+				player.setCollideWorldBounds(true);
+
+				this.anims.create({
+					key: 'left',
+					frames: this.anims.generateFrameNumbers('dude', { start: 0, end: 3 }),
+					frameRate: 10,
+					repeat: -1,
+				});
+
+				this.anims.create({
+					key: 'turn',
+					frames: [{ key: 'dude', frame: 4 }],
+					frameRate: 20,
+				});
+
+				this.anims.create({
+					key: 'right',
+					frames: this.anims.generateFrameNumbers('dude', { start: 5, end: 8 }),
+					frameRate: 10,
+					repeat: -1,
+				});
+
+				cursors = this.input.keyboard.createCursorKeys();
+				wasd = this.input.keyboard.addKeys({
+					up: Phaser.Input.Keyboard.KeyCodes.W,
+					left: Phaser.Input.Keyboard.KeyCodes.A,
+					down: Phaser.Input.Keyboard.KeyCodes.S,
+					right: Phaser.Input.Keyboard.KeyCodes.D,
+				});
+
+				enemies = this.physics.add.group();
+				for (let i = 0; i < 5; i++) {
+					let enemy = this.add.rectangle(300 + i * 100, 500, 32, 32, 0xff0000);
+					this.physics.add.existing(enemy);
+					enemy.body.setCollideWorldBounds(true);
+					enemy.body.setImmovable(true);
+					enemies.add(enemy);
+				}
+
+				this.physics.add.collider(player, platforms);
+				this.physics.add.collider(enemies, platforms);
+				this.physics.add.collider(
+					player,
+					enemies,
+					() => {
+						gameOver = true;
+					},
+					null,
+					this
+				);
+
+				cursorTarget = this.add.graphics();
+				cursorTarget.lineStyle(2, 0xff0000, 1);
+				cursorTarget.strokeCircle(0, 0, 10);
+				cursorTarget.setDepth(1000);
+
+				cameraTarget.x = player.x;
+				cameraTarget.y = player.y;
+
+				this.input.on('pointerdown', (pointer) => {
+					shootRay.call(this, pointer);
+				});
+			}
+
+			function update(time, delta) {
+				if (gameOver) {
+					return;
+				}
+
+				var left = cursors.left.isDown || wasd.left.isDown;
+				var right = cursors.right.isDown || wasd.right.isDown;
+				var up = cursors.up.isDown || wasd.up.isDown;
+
+				if (left) {
+					player.setVelocityX(-160);
+					player.anims.play('left', true);
+				} else if (right) {
+					player.setVelocityX(160);
+					player.anims.play('right', true);
+				} else {
+					player.setVelocityX(0);
+					player.anims.play('turn');
+				}
+
+				if (up && player.body.touching.down) {
+					player.setVelocityY(-330);
+				}
+
+				var pointer = this.input.activePointer;
+				var pointerWorld = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+				cursorTarget.x = pointerWorld.x;
+				cursorTarget.y = pointerWorld.y;
+
+				var lerp = 0.1;
+				var targetX = Phaser.Math.Interpolation.Linear([player.x, pointerWorld.x], 0.2);
+				var targetY = Phaser.Math.Interpolation.Linear([player.y, pointerWorld.y], 0.2);
+				cameraTarget.x += (targetX - cameraTarget.x) * lerp;
+				cameraTarget.y += (targetY - cameraTarget.y) * lerp;
+				this.cameras.main.centerOn(cameraTarget.x, cameraTarget.y);
+			}
+
+			function shootRay(pointer) {
+				if (!player.active) return;
+				const pointerWorld = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+				const start = new Phaser.Geom.Point(player.x, player.y);
+				const end = new Phaser.Geom.Point(pointerWorld.x, pointerWorld.y);
+				let hitEnemy = null;
+				let minDist = Infinity;
+				let hitPoint = end;
+				const ray = new Phaser.Geom.Line(start.x, start.y, end.x, end.y);
+
+				enemies.getChildren().forEach((enemy) => {
+					if (!enemy.active) return;
+					const rect = new Phaser.Geom.Rectangle(enemy.x - 16, enemy.y - 16, 32, 32);
+					const intersectPoint = getLineRectIntersection(ray, rect);
+					if (intersectPoint) {
+						const dist = Phaser.Math.Distance.Between(player.x, player.y, intersectPoint.x, intersectPoint.y);
+						if (dist < minDist) {
+							minDist = dist;
+							hitEnemy = enemy;
+							hitPoint = intersectPoint;
+						}
+					}
+				});
+				if (hitEnemy) {
+					hitEnemy.destroy();
+				}
+				const graphics = this.add.graphics();
+				graphics.lineStyle(3, 0xffff00, 1);
+				graphics.beginPath();
+				graphics.moveTo(start.x, start.y);
+				graphics.lineTo(hitPoint.x, hitPoint.y);
+				graphics.strokePath();
+				this.time.delayedCall(100, () => graphics.destroy());
+			}
+
+			function getLineRectIntersection(line, rect) {
+				const points = [];
+				const rectLines = [
+					new Phaser.Geom.Line(rect.x, rect.y, rect.x + rect.width, rect.y), // top
+					new Phaser.Geom.Line(rect.x, rect.y, rect.x, rect.y + rect.height), // left
+					new Phaser.Geom.Line(rect.x + rect.width, rect.y, rect.x + rect.width, rect.y + rect.height), // right
+					new Phaser.Geom.Line(rect.x, rect.y + rect.height, rect.x + rect.width, rect.y + rect.height), // bottom
+				];
+				for (let edge of rectLines) {
+					const out = new Phaser.Geom.Point();
+					if (Phaser.Geom.Intersects.LineToLine(line, edge, out)) {
+						points.push({ x: out.x, y: out.y });
+					}
+				}
+				if (points.length === 0) return null;
+				points.sort((a, b) => {
+					const da = Phaser.Math.Distance.Between(line.x1, line.y1, a.x, a.y);
+					const db = Phaser.Math.Distance.Between(line.x1, line.y1, b.x, b.y);
+					return da - db;
+				});
+				return points[0];
+			}
+
+			function resize(gameSize, baseSize, displaySize, resolution) {
+				const width = gameSize.width;
+				const height = gameSize.height;
+				if (this.bg) {
+					this.bg.setPosition(width / 2, height / 2);
+					const scaleX = width / this.bg.width;
+					const scaleY = height / this.bg.height;
+					const scale = Math.max(scaleX, scaleY);
+					this.bg.setScale(scale);
+				}
+			}
+		</script>
+	</body>
 </html>
