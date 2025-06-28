@@ -7,14 +7,9 @@
 	"name": "io-game",
 	"main": "src/index.js",
 	"compatibility_date": "2025-06-27",
-	"migrations": [
-		{
-			"new_sqlite_classes": [
-				"MyDurableObject"
-			],
-			"tag": "v1"
-		}
-	],
+	"assets": {
+		"directory": "./public"
+	},
 	"durable_objects": {
 		"bindings": [
 			{
@@ -23,6 +18,14 @@
 			}
 		]
 	},
+	"migrations": [
+		{
+			"new_sqlite_classes": [
+				"MyDurableObject"
+			],
+			"tag": "v1"
+		}
+	],
 	"observability": {
 		"enabled": true
 	}

@@ -9,5 +9,8 @@
 	},
 	"devDependencies": {
 		"wrangler": "^4.22.0"
+	},
+	"dependencies": {
+		"phaser": "^3.90.0"
 	}
 }
