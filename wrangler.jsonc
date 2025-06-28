@@ -4,16 +4,24 @@
  */
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "io-game-nextjs",
-	"main": ".open-next/worker.js",
-	"compatibility_date": "2025-03-01",
-	"compatibility_flags": [
-		"nodejs_compat",
-		"global_fetch_strictly_public"
+	"name": "io-game",
+	"main": "src/index.js",
+	"compatibility_date": "2025-06-27",
+	"migrations": [
+		{
+			"new_sqlite_classes": [
+				"MyDurableObject"
+			],
+			"tag": "v1"
+		}
 	],
-	"assets": {
-		"binding": "ASSETS",
-		"directory": ".open-next/assets"
+	"durable_objects": {
+		"bindings": [
+			{
+				"class_name": "MyDurableObject",
+				"name": "MY_DURABLE_OBJECT"
+			}
+		]
 	},
 	"observability": {
 		"enabled": true
