@@ -56,9 +56,9 @@ class GameScene extends Phaser.Scene {
 		// Use Matter.js for platforms
 		this.platforms = [];
 		const platformData = [
-			{ x: 800, y: 900, width: 4600, height: 40 },
-			{ x: -1500, y: 500, width: 40, height: 800 },
-			{ x: 3070, y: -3050, width: 40, height: 8000 },
+			{ x: 800, y: 1300, width: 6000, height: 1000 },
+			{ x: -2500, y: -1050, width: 2000, height: 8000 },
+			{ x: 4070, y: -1050, width: 2000, height: 8000 },
 			{ x: 800, y: 700, width: 1000, height: 32 },
 			{ x: 800, y: 200, width: 800, height: 32 },
 			{ x: 300, y: 500, width: 200, height: 32 },
@@ -68,11 +68,40 @@ class GameScene extends Phaser.Scene {
 			{ x: 800, y: 400, width: 150, height: 32 },
 			{ x: 400, y: 300, width: 120, height: 32 },
 			{ x: 500, y: 300, width: 120, height: 32 },
-			{ x: -230, y: 800, width: 32, height: 200 },
-			{ x: 1200, y: 300, width: 120, height: 32 },
-			{ x: 200, y: 700, width: 80, height: 32 },
-			{ x: 1400, y: 700, width: 80, height: 32 },
-			{ x: 800, y: 550, width: 32, height: 120 },
+			{ x: -230, y: 800, width: 500, height: 200 },
+			{ x: -230, y: 500, width: 500, height: 50 },
+			{ x: -230, y: 0, width: 500, height: 50 },
+			{ x: -380, y: 180, width: 200, height: 80 },
+			{ x: -600, y: 600, width: 80, height: 30 },
+			{ x: -600, y: 300, width: 80, height: 30 },
+			{ x: -600, y: 0, width: 80, height: 30 },
+			{ x: -1000, y: 600, width: 500, height: 30 },
+			{ x: -1430, y: 800, width: 500, height: 200 },
+			{ x: -230, y: 300, width: 500, height: 200 },
+			{ x: -1030, y: 300, width: 500, height: 200 },
+			{ x: -1030, y: -200, width: 500, height: 200 },
+			{ x: -1530, y: 400, width: 200, height: 30 },
+			{ x: -1130, y: 0, width: 400, height: 30 },
+			{ x: -1530, y: 0, width: 200, height: 30 },
+			{ x: 230, y: 800, width: 500, height: 200 },
+			{ x: -230, y: 500, width: 500, height: 50 },
+			{ x: 630, y: 0, width: 500, height: 50 },
+			{ x: 380, y: 180, width: 200, height: 80 },
+			{ x: 600, y: 600, width: 80, height: 30 },
+			{ x: 600, y: 300, width: 80, height: 30 },
+			{ x: 600, y: 0, width: 80, height: 30 },
+			{ x: 2000, y: 600, width: 500, height: 30 },
+			{ x: 2430, y: 800, width: 500, height: 200 },
+			// { x: 230, y: 300, width: 500, height: 200 },
+			// { x: 1030, y: 300, width: 500, height: 200 },
+			// { x: 1030, y: -200, width: 500, height: 200 },
+			// { x: 1530, y: 400, width: 200, height: 30 },
+			// { x: 1130, y: 0, width: 400, height: 30 },
+			// { x: 1530, y: 0, width: 200, height: 30 },
+			// { x: 1200, y: 300, width: 120, height: 32 },
+			// { x: 200, y: 700, width: 80, height: 32 },
+			// { x: 1400, y: 700, width: 80, height: 32 },
+			// { x: 800, y: 550, width: 300, height: 120 },
 		];
 
 		platformData.forEach((data) => {
@@ -86,7 +115,7 @@ class GameScene extends Phaser.Scene {
 		// Player with Matter.js
 		this.player = this.add.rectangle(this.startX, this.startY, 32, 48, 0x000000);
 		this.matter.add.gameObject(this.player);
-		this.player.setFriction(0.1);
+		this.player.setFriction(0);
 		this.player.setBounce(0);
 		this.player.setFixedRotation();
 
@@ -173,7 +202,6 @@ class GameScene extends Phaser.Scene {
 			this.spawnEnemy(enemy.position.x, enemy.position.y, enemy.id, enemy.health);
 		});
 
-		// --- Replace collision event for ground check ---
 		this.isPlayerOnGround = false;
 		this.player.body.onCollideCallback = (pair) => {
 			if (this.platforms.includes(pair.bodyB.gameObject) || this.platforms.includes(pair.bodyA.gameObject)) {
@@ -221,19 +249,28 @@ class GameScene extends Phaser.Scene {
 	spawnEnemy(x, y, id, health) {
 		let enemy = this.add.rectangle(x, y, 32, 48, 0xff0000);
 		this.matter.add.gameObject(enemy, { isStatic: false });
-		enemy.setFriction(0.1);
+		enemy.setFriction(0);
 		enemy.setBounce(0);
 		enemy.health = health || 20;
 		enemy.maxHealth = 20;
 		enemy.id = id;
 		enemy.healthBar = this.add.graphics();
 		enemy.healthBar.setDepth(1002);
-		enemy.setFriction(0.1);
-		enemy.setBounce(0.1);
 		enemy.setFixedRotation();
 		enemy.canDoubleJump = true;
 		enemy.firstJumpInput = true;
 		enemy.wasOnGround = false;
+		enemy.body.onCollideCallback = (pair) => {
+			if (this.platforms.includes(pair.bodyB.gameObject) || this.platforms.includes(pair.bodyA.gameObject)) {
+				if (enemy.body.velocity.y >= 0) {
+					enemy.isOnGround = true;
+				}
+			}
+		};
+
+		enemy.body.onCollideEndCallback = () => {
+			enemy.isOnGround = false;
+		};
 		this.enemies.push(enemy);
 		return enemy;
 	}

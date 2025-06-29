@@ -9,6 +9,31 @@
 			body {
 				margin: 0;
 			}
+			#chat {
+				position: fixed;
+				background-color: transparent;
+				left: 0;
+				bottom: 40px;
+				height: 100px;
+				width: 500px;
+				overflow-y: scroll;
+			}
+			#chatForm {
+				position: fixed;
+				margin-top: 100px;
+				bottom: 10px;
+				left: 0;
+				width: 500px;
+				background-color: transparent;
+			}
+			#chatInput {
+				width: 450px;
+				background-color: transparent;
+			}
+			#chatInput:focus {
+				outline: none;
+				box-shadow: none;
+			}
 		</style>
 	</head>
 	<body>
@@ -16,6 +41,9 @@
 		<script src="Scenes/Game.js"></script>
 		<script type="text/javascript">
 			const socket = new WebSocket('/ws');
+			function sendChat(chat) {
+				socket.send(JSON.stringify({ event: 'chat', data: { message: chat } }));
+			}
 			var config = {
 				type: Phaser.AUTO,
 				scale: {
@@ -27,11 +55,11 @@
 				physics: {
 					default: 'matter',
 					matter: {
-						gravity: { y: 1 }, // adjust as needed
+						gravity: { y: 1 },
 						debug: false,
 					},
 				},
-				scene: [window.Menu, window.Game], // Start with Menu, then Game
+				scene: [window.Menu, window.Game],
 				canvasStyle: `display: block; width: 100%; height: 100%;`,
 				autoFocus: true,
 			};
@@ -40,12 +68,36 @@
 
 			socket.onmessage = (e) => {
 				const { event, data } = JSON.parse(e.data);
+				if (event == 'chat') {
+					const chatDiv = document.getElementById('chat');
+					chatDiv.innerHTML += `<div>${data.username}: ${data.message}</div>`;
+					chatDiv.scrollTop = chatDiv.scrollHeight;
+				}
 				game.scene.getScenes().forEach((scene) => {
 					if (typeof scene.onSocketMessage === 'function') {
 						scene.onSocketMessage(event, data);
 					}
 				});
 			};
+		</script>
+		<div id="chat"></div>
+		<form id="chatForm"><input id="chatInput" /><button type="submit">Send</button></form>
+		<script>
+			document.getElementById('chatForm').addEventListener('submit', function (e) {
+				e.preventDefault();
+				const input = document.getElementById('chatInput');
+				const message = input.value.trim();
+				if (message) {
+					sendChat(message);
+					input.value = '';
+				}
+			});
+			const chatInput = document.getElementById('chatInput');
+			['keydown', 'keyup', 'keypress'].forEach((evt) => {
+				chatInput.addEventListener(evt, function (e) {
+					e.stopPropagation();
+				});
+			});
 		</script>
 	</body>
 </html>

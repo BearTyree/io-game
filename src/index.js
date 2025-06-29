@@ -65,10 +65,12 @@ export class MyDurableObject extends DurableObject {
 
 		switch (event) {
 			case 'start': {
+				const { username } = data;
 				const startPosition = { x: Math.random() * -2000 * Math.sign(Math.random() - 0.5) + 1000, y: -100 * Math.random() };
 				let session = this.sessions.get(ws) || {};
 				session.position = startPosition;
 				session.health = 20;
+				session.username = username;
 
 				this.sessions.set(ws, session);
 				ws.serializeAttachment(session);
@@ -192,6 +194,14 @@ export class MyDurableObject extends DurableObject {
 						}
 					}
 				});
+				break;
+			}
+			case 'chat': {
+				const { message } = data;
+				let session = this.sessions.get(ws) || {};
+
+				await this.broadcastMessage('chat', { message, username: session.username });
+
 				break;
 			}
 		}
