@@ -3,8 +3,6 @@ class GameScene extends Phaser.Scene {
 		super({ key: 'Game' });
 		// State variables
 		this.player = null;
-		this.stars = null;
-		this.bombs = null;
 		this.platforms = [];
 		this.cursors = null;
 		this.wasd = null;
@@ -20,12 +18,16 @@ class GameScene extends Phaser.Scene {
 		this.fireRate = 10;
 		this.canDoubleJump = true;
 		this.firstJumpInput = true;
+		this.health = 6;
+		this.wasPlayerOnGround = false;
 	}
 
 	init(data) {
 		this.startX = data?.x;
 		this.startY = data?.y;
 		this.initialEnemies = data?.enemies;
+		this.id = data?.id;
+		this.health = data?.health;
 	}
 
 	preload() {
@@ -33,6 +35,10 @@ class GameScene extends Phaser.Scene {
 	}
 
 	create() {
+		this.canDoubleJump = true;
+		this.firstJumpInput = true;
+		this.health = 6;
+		this.wasPlayerOnGround = false;
 		this.cameras.main.roundPx = true;
 		this.input.manager.canvas.style.cursor = 'none';
 
@@ -61,6 +67,8 @@ class GameScene extends Phaser.Scene {
 			{ x: 1000, y: 600, width: 100, height: 32 },
 			{ x: 800, y: 400, width: 150, height: 32 },
 			{ x: 400, y: 300, width: 120, height: 32 },
+			{ x: 500, y: 300, width: 120, height: 32 },
+			{ x: -230, y: 800, width: 32, height: 200 },
 			{ x: 1200, y: 300, width: 120, height: 32 },
 			{ x: 200, y: 700, width: 80, height: 32 },
 			{ x: 1400, y: 700, width: 80, height: 32 },
@@ -162,7 +170,7 @@ class GameScene extends Phaser.Scene {
 		this.isPlayerOnGround = false;
 
 		this.initialEnemies.forEach((enemy) => {
-			this.spawnEnemy(enemy.position.x, enemy.position.y, enemy.id);
+			this.spawnEnemy(enemy.position.x, enemy.position.y, enemy.id, enemy.health);
 		});
 
 		// Matter.js collision event for ground check
@@ -199,17 +207,38 @@ class GameScene extends Phaser.Scene {
 			callbackScope: this,
 			loop: true,
 		});
+
+		this.scale.on('resize', this.resize, this);
+
+		// Reset or recreate the health bar graphics on respawn
+		if (this.uiGraphics) {
+			this.uiGraphics.destroy();
+		}
+		this.uiGraphics = this.add.graphics();
+		this.uiGraphics.setScrollFactor(0);
+		this.uiGraphics.setDepth(9999);
+		this.uiGraphics.fillStyle(0x000000, 1);
+		this.uiGraphics.fillRect(5, 5, 510, 20);
+		this.uiGraphics.setScrollFactor(0);
+		this.uiGraphics.setDepth(9999);
+		this.uiGraphics.fillStyle(0x00ff00, 1);
+		// Draw green health bar based on current health
+		const healthBarMaxWidth = 500;
+		const healthBarHeight = 10;
+		const healthBarX = 10;
+		const healthBarY = 10;
+		const healthPercent = this.health / 6;
+		this.uiGraphics.fillRect(healthBarX, healthBarY, healthBarMaxWidth * healthPercent, healthBarHeight);
 	}
 
-	spawnEnemy(x, y, id, username) {
+	spawnEnemy(x, y, id, health) {
 		let enemy = this.add.rectangle(x, y, 32, 48, 0xff0000);
 		this.matter.add.gameObject(enemy, { isStatic: false });
 		enemy.setFriction(0.1);
 		enemy.setBounce(0.1);
-		enemy.health = 3;
-		enemy.maxHealth = 3;
+		enemy.health = health || 6;
+		enemy.maxHealth = 6;
 		enemy.id = id;
-		enemy.username = username;
 		enemy.healthBar = this.add.graphics();
 		enemy.healthBar.setDepth(1002);
 		enemy.setFriction(0.1);
@@ -217,11 +246,31 @@ class GameScene extends Phaser.Scene {
 		enemy.setFixedRotation();
 		enemy.canDoubleJump = true;
 		enemy.firstJumpInput = true;
+		enemy.wasOnGround = false;
 		this.enemies.push(enemy);
 		return enemy;
 	}
 
 	update(time, delta) {
+		console.log(this.player.x, this.player.y);
+		if (!this.uiGraphics) {
+			this.uiGraphics = this.add.graphics();
+			this.uiGraphics.setScrollFactor(0);
+			this.uiGraphics.setDepth(9999);
+		} else {
+			this.uiGraphics.clear();
+		}
+		// Draw background
+		this.uiGraphics.fillStyle(0x000000, 1);
+		this.uiGraphics.fillRect(5, 5, 510, 20);
+		// Draw green health bar based on current health
+		const healthBarMaxWidth = 500;
+		const healthBarHeight = 10;
+		const healthBarX = 10;
+		const healthBarY = 10;
+		const healthPercent = this.health / 6;
+		this.uiGraphics.fillStyle(0x00ff00, 1);
+		this.uiGraphics.fillRect(healthBarX, healthBarY, healthBarMaxWidth * healthPercent, healthBarHeight);
 		const player = this.player;
 		const cursors = this.cursors;
 		const wasd = this.wasd;
@@ -247,9 +296,10 @@ class GameScene extends Phaser.Scene {
 			if (!enemy.up) {
 				enemy.firstJumpInput = true;
 			}
-			if (enemy.isPlayerOnGround) {
+			if (enemy.isOnGround && !enemy.wasOnGround) {
 				enemy.canDoubleJump = true;
 			}
+			enemy.wasPlayerOnGround = enemy.isPlayerOnGround;
 		});
 
 		if (left) {
@@ -269,9 +319,10 @@ class GameScene extends Phaser.Scene {
 		if (!up) {
 			this.firstJumpInput = true;
 		}
-		if (this.isPlayerOnGround) {
+		if (this.isPlayerOnGround && !this.wasPlayerOnGround) {
 			this.canDoubleJump = true;
 		}
+		this.wasPlayerOnGround = this.isPlayerOnGround;
 
 		const pointer = this.input.activePointer;
 		const pointerWorld = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
@@ -414,6 +465,7 @@ class GameScene extends Phaser.Scene {
 				this.showEnemyKilledText(hitEnemy.x, hitEnemy.y);
 				hitEnemy.destroy();
 			}
+			this.game.socket.send(JSON.stringify({ event: 'hit', data: { id: hitEnemy.id } }));
 		}
 
 		let shotAngle = Math.atan2(dy, dx);
@@ -482,8 +534,8 @@ class GameScene extends Phaser.Scene {
 	onSocketMessage(event, data) {
 		switch (event) {
 			case 'enemy_join': {
-				const { position, id, username } = data;
-				this.spawnEnemy(position.x, position.y, id, username);
+				const { position, id } = data;
+				this.spawnEnemy(position.x, position.y, id);
 				break;
 			}
 			case 'enemy_keydown': {
@@ -516,6 +568,21 @@ class GameScene extends Phaser.Scene {
 				const enemy = this.enemies.find((e) => e.id === id);
 				if (enemy) {
 					this.enemyShoot(start, hitPoint);
+				}
+				break;
+			}
+			case 'enemy_hit': {
+				const { id } = data;
+				if (id == this.id) {
+					this.health -= 1;
+					if (this.health < 1) {
+						this.scene.start('Menu');
+					}
+					return;
+				}
+				const enemy = this.enemies.find((e) => e.id === id);
+				if (enemy) {
+					enemy.health -= 1;
 				}
 				break;
 			}

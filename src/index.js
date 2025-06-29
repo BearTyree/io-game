@@ -65,16 +65,15 @@ export class MyDurableObject extends DurableObject {
 
 		switch (event) {
 			case 'start': {
-				const { username } = data;
 				const startPosition = { x: Math.random() * -2000 * Math.sign(Math.random() - 0.5) + 1000, y: -100 * Math.random() };
 				let session = this.sessions.get(ws) || {};
-				session.username = username;
 				session.position = startPosition;
+				session.health = 6;
 
 				this.sessions.set(ws, session);
 				ws.serializeAttachment(session);
 
-				const join = { id: session.id, username: session.username, position: startPosition };
+				const join = { id: session.id, position: startPosition };
 				this.sessions.forEach((_, otherWs) => {
 					if (otherWs !== ws) {
 						try {
@@ -88,7 +87,7 @@ export class MyDurableObject extends DurableObject {
 				const enemies = Array.from(this.sessions.entries())
 					.map((entry) => entry[1])
 					.filter((enemy) => enemy.position && enemy.id != session.id);
-				ws.send(JSON.stringify({ event: 'start', data: { startPosition, enemies } }));
+				ws.send(JSON.stringify({ event: 'start', data: { startPosition, enemies, id: session.id, health: session.health } }));
 				break;
 			}
 			case 'keydown': {
@@ -164,6 +163,30 @@ export class MyDurableObject extends DurableObject {
 					if (otherWs !== ws) {
 						try {
 							otherWs.send(JSON.stringify({ event: 'enemy_shoot', data: update }));
+						} catch (error) {
+							this.sessions.delete(otherWs);
+						}
+					}
+				});
+				break;
+			}
+			case 'hit': {
+				const { id } = data;
+
+				for (const [otherWs, session] of this.sessions.entries()) {
+					if (session.id === id) {
+						session.health = (session.health || 0) - 1;
+						this.sessions.set(otherWs, session);
+						otherWs.serializeAttachment(session);
+						break;
+					}
+				}
+
+				const update = { id };
+				this.sessions.forEach((_, otherWs) => {
+					if (otherWs !== ws) {
+						try {
+							otherWs.send(JSON.stringify({ event: 'enemy_hit', data: update }));
 						} catch (error) {
 							this.sessions.delete(otherWs);
 						}
