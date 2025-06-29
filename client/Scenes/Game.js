@@ -8,6 +8,7 @@ class GameScene extends Phaser.Scene {
 		this.wasd = null;
 		this.score = 0;
 		this.scoreText = null;
+		this.scoreboardTexts = [];
 		this.cursorTarget = null;
 		this.cameraTarget = { x: 0, y: 0 };
 		this.cameraRecoil = { x: 0, y: 0 };
@@ -29,6 +30,7 @@ class GameScene extends Phaser.Scene {
 		this.id = data?.id;
 		this.health = data?.health;
 		this.username = data?.username;
+		this.kills = data?.kills;
 	}
 
 	preload() {
@@ -42,6 +44,7 @@ class GameScene extends Phaser.Scene {
 		this.wasPlayerOnGround = false;
 		this.cameras.main.roundPx = true;
 		this.input.manager.canvas.style.cursor = 'none';
+		this.enemyScores = this.initialEnemies.map((e) => ({ username: e.username, kills: e.kills, id: e.id }));
 
 		const width = this.scale.width;
 		const height = this.scale.height;
@@ -245,6 +248,10 @@ class GameScene extends Phaser.Scene {
 		const healthBarY = 10;
 		const healthPercent = this.health / 20;
 		this.uiGraphics.fillRect(healthBarX, healthBarY, healthBarMaxWidth * healthPercent, healthBarHeight);
+
+		// Scoreboard setup
+		this.scoreboardTexts = [];
+		this.updateScoreboard([...this.enemyScores, { username: this.username, kills: this.kills }]);
 	}
 
 	spawnEnemy(x, y, id, health) {
@@ -498,6 +505,8 @@ class GameScene extends Phaser.Scene {
 				hitEnemy.healthBar.destroy();
 				this.showEnemyKilledText(hitEnemy.x, hitEnemy.y);
 				hitEnemy.destroy();
+				this.kills += 1;
+				this.updateScoreboard([...this.enemyScores, { username: this.username, kills: this.kills }]);
 			}
 			this.game.socket.send(JSON.stringify({ event: 'hit', data: { id: hitEnemy.id } }));
 		}
@@ -568,8 +577,13 @@ class GameScene extends Phaser.Scene {
 	onSocketMessage(event, data) {
 		switch (event) {
 			case 'enemy_join': {
-				const { position, id } = data;
+				const { position, id, kills, username } = data;
 				this.spawnEnemy(position.x, position.y, id);
+				if (!this.enemyScores.find((e) => e.id == id)) {
+					this.enemyScores.push({ id, kills, username });
+				}
+
+				this.updateScoreboard([...this.enemyScores, { username: this.username, kills: this.kills }]);
 				break;
 			}
 			case 'enemy_keydown': {
@@ -620,6 +634,46 @@ class GameScene extends Phaser.Scene {
 				}
 				break;
 			}
+			case 'enemy_kills': {
+				const { id, kills } = data;
+				this.enemyScores[this.enemyScores.findIndex((e) => e.id == id)].kills = kills;
+				this.updateScoreboard([...this.enemyScores, { username: this.username, kills: this.kills }]);
+				break;
+			}
+		}
+	}
+
+	updateScoreboard(scores) {
+		// Remove old scoreboard texts
+		if (this.scoreboardTexts && this.scoreboardTexts.length) {
+			this.scoreboardTexts.forEach((text) => text.destroy());
+		}
+		this.scoreboardTexts = [];
+		// Display new scoreboard
+		const startX = this.scale.width - 250;
+		const startY = 20;
+		const lineHeight = 28;
+		const title = this.add.text(startX, startY, 'Scoreboard', {
+			font: 'bold 24px Arial',
+			fill: '#fff',
+			stroke: '#000',
+			strokeThickness: 3,
+		});
+		title.setScrollFactor(0);
+		title.setDepth(9999);
+		this.scoreboardTexts.push(title);
+		scores.sort((a, b) => b.kills - a.kills);
+		for (let i = 0; i < scores.length; i++) {
+			const entry = scores[i];
+			const text = this.add.text(startX, startY + (i + 1) * lineHeight, `${entry.username}: ${entry.kills}`, {
+				font: '20px Arial',
+				fill: '#fff',
+				stroke: '#000',
+				strokeThickness: 2,
+			});
+			text.setScrollFactor(0);
+			text.setDepth(9999);
+			this.scoreboardTexts.push(text);
 		}
 	}
 }

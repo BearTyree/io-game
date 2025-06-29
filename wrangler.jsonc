@@ -13,19 +13,22 @@
 	"durable_objects": {
 		"bindings": [
 			{
-				"class_name": "MyDurableObject",
-				"name": "MY_DURABLE_OBJECT"
+				"class_name": "GameServer",
+				"name": "SERVER"
 			}
 		]
 	},
 	"migrations": [
 		{
-			"new_sqlite_classes": ["MyDurableObject"],
+			"new_sqlite_classes": ["GameServer"],
 			"tag": "v1"
 		}
 	],
 	"observability": {
 		"enabled": true
+	},
+	"triggers": {
+		"crons": ["*/5 * * * *"] // runs every hour
 	}
 	/**
 	 * Smart Placement

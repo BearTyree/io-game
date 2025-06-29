@@ -1,34 +1,24 @@
 import { DurableObject } from 'cloudflare:workers';
 
-/**
- * Welcome to Cloudflare Workers! This is your first Durable Objects application.
- *
- * - Run `npm run dev` in your terminal to start a development server
- * - Open a browser tab at http://localhost:8787/ to see your Durable Object in action
- * - Run `npm run deploy` to publish your application
- *
- * Learn more at https://developers.cloudflare.com/durable-objects
- */
-
-/**
- * Env provides a mechanism to reference bindings declared in wrangler.jsonc within JavaScript
- *
- * @typedef {Object} Env
- * @property {DurableObjectNamespace} MY_DURABLE_OBJECT - The Durable Object namespace binding
- */
-
-/** A Durable Object's behavior is defined in an exported Javascript class */
-export class MyDurableObject extends DurableObject {
+export class GameServer extends DurableObject {
 	constructor(state, env) {
 		super(state, env);
 		this.env = env;
 		this.state = state;
 		this.storage = state.storage;
+		this.state.blockConcurrencyWhile(async () => {
+			this.matchStartedAt = (await this.storage.get('match_started_at')) || new Date().toISOString();
+			this.saveState();
+		});
 		this.sessions = new Map();
 		this.state.getWebSockets().forEach((webSocket) => {
 			let meta = webSocket.deserializeAttachment();
 			this.sessions.set(webSocket, { ...meta });
 		});
+	}
+
+	async saveState() {
+		await this.storage.put('match_started_at', this.matchStartedAt);
 	}
 
 	async fetch() {
@@ -69,13 +59,17 @@ export class MyDurableObject extends DurableObject {
 				const startPosition = { x: Math.random() * -2000 * Math.sign(Math.random() - 0.5) + 1000, y: -100 * Math.random() };
 				let session = this.sessions.get(ws) || {};
 				session.position = startPosition;
+				if (!session.kills) {
+					session.kills = 0;
+				}
+
 				session.health = 20;
 				session.username = username;
 
 				this.sessions.set(ws, session);
 				ws.serializeAttachment(session);
 
-				const join = { id: session.id, position: startPosition };
+				const join = { id: session.id, position: startPosition, kills: session.kills, username: session.username };
 				this.sessions.forEach((_, otherWs) => {
 					if (otherWs !== ws) {
 						try {
@@ -89,7 +83,9 @@ export class MyDurableObject extends DurableObject {
 				const enemies = Array.from(this.sessions.entries())
 					.map((entry) => entry[1])
 					.filter((enemy) => enemy.position && enemy.id != session.id);
-				ws.send(JSON.stringify({ event: 'start', data: { startPosition, enemies, id: session.id, health: session.health } }));
+				ws.send(
+					JSON.stringify({ event: 'start', data: { startPosition, enemies, id: session.id, health: session.health, kills: session.kills } })
+				);
 				break;
 			}
 			case 'keydown': {
@@ -174,12 +170,27 @@ export class MyDurableObject extends DurableObject {
 			}
 			case 'hit': {
 				const { id } = data;
+				const shooterSession = this.sessions.get(ws);
 
 				for (const [otherWs, session] of this.sessions.entries()) {
 					if (session.id === id) {
 						session.health = (session.health || 0) - 1;
 						this.sessions.set(otherWs, session);
 						otherWs.serializeAttachment(session);
+						if (session.health < 1) {
+							shooterSession.kills += 1;
+							this.sessions.set(ws, shooterSession);
+							ws.serializeAttachment(shooterSession);
+							this.sessions.forEach((_, otherWs) => {
+								if (otherWs !== ws) {
+									try {
+										otherWs.send(JSON.stringify({ event: 'enemy_kills', data: { id: shooterSession.id, kills: shooterSession.kills } }));
+									} catch (error) {
+										this.sessions.delete(otherWs);
+									}
+								}
+							});
+						}
 						break;
 					}
 				}
@@ -194,6 +205,7 @@ export class MyDurableObject extends DurableObject {
 						}
 					}
 				});
+
 				break;
 			}
 			case 'chat': {
@@ -216,6 +228,8 @@ export class MyDurableObject extends DurableObject {
 			}
 		});
 	}
+
+	async startNewMatch() {}
 }
 
 export default {
@@ -226,12 +240,27 @@ export default {
 
 		switch (path[0]) {
 			case 'ws': {
-				const id = env.MY_DURABLE_OBJECT.idFromName('foo');
-				const stub = env.MY_DURABLE_OBJECT.get(id);
+				const id = env.SERVER.idFromName('main');
+				const stub = env.SERVER.get(id);
 				return stub.fetch(request);
 			}
 			default:
 				return new Response('Hello from the api', { status: 200 });
 		}
 	},
+
+	async scheduled(event, env, ctx) {
+		const id = env.SERVER.idFromName('main');
+		const stub = env.SERVER.get(id);
+		stub.startNewMatch();
+	},
 };
+
+// startNew match
+// set everyone's scores to zero
+// set the match start to now
+// if the start of the match was more than 5 minutes ago transition to scoreboard scene
+// if joined and match started within 20 seconds ago transition to scoreboard scene
+// start of match is more than 20 seconds ago transition to match scene
+// on a kill add points to a websocket
+// send out player stats on every kill and generate the leaderboard
