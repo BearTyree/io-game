@@ -19,35 +19,73 @@ import { DurableObject } from 'cloudflare:workers';
 
 /** A Durable Object's behavior is defined in an exported Javascript class */
 export class MyDurableObject extends DurableObject {
-	/**
-	 * The constructor is invoked once upon creation of the Durable Object, i.e. the first call to
-	 * 	`DurableObjectStub::get` for a given identifier (no-op constructors can be omitted)
-	 *
-	 * @param {DurableObjectState} ctx - The interface for interacting with Durable Object state
-	 * @param {Env} env - The interface to reference bindings declared in wrangler.jsonc
-	 */
-	constructor(ctx, env) {
-		super(ctx, env);
+	constructor(state, env) {
+		super(state, env);
+		this.env = env;
+		this.state = state;
+		this.storage = state.storage;
+		this.sessions = new Map();
+		this.state.getWebSockets().forEach((webSocket) => {
+			let meta = webSocket.deserializeAttachment();
+			this.sessions.set(webSocket, { ...meta });
+		});
 	}
 
-	/**
-	 * The Durable Object exposes an RPC method sayHello which will be invoked when when a Durable
-	 *  Object instance receives a request from a Worker via the same method invocation on the stub
-	 *
-	 * @param {string} name - The name provided to a Durable Object instance from a Worker
-	 * @returns {Promise<string>} The greeting to be sent back to the Worker
-	 */
-	async sayHello(name) {
-		return `Hello, ${name}!`;
+	async fetch() {
+		let pair = new WebSocketPair();
+
+		await this.handleSession(pair[1]);
+
+		return new Response(null, {
+			status: 101,
+			webSocket: pair[0],
+			headers: {
+				Upgrade: 'websocket',
+				Connection: 'Upgrade',
+			},
+		});
+	}
+
+	async handleSession(ws) {
+		this.state.acceptWebSocket(ws);
+		this.sessions.set(ws);
+	}
+
+	async webSocketClose(ws) {
+		this.sessions.delete(ws);
+	}
+
+	async webSocketError(ws, error) {
+		this.sessions.delete(ws);
+		console.log(error);
+	}
+
+	async webSocketMessage(ws, message, env) {
+		const { event, data } = JSON.parse(message);
+
+		console.log(event, data);
+
+		// switch (event) {
+		// 	case 'admin': {
+		// 	}
+		// }
 	}
 }
 
 export default {
 	async fetch(request, env, ctx) {
-		const id = env.MY_DURABLE_OBJECT.idFromName('foo');
-		const stub = env.MY_DURABLE_OBJECT.get(id);
-		const greeting = await stub.sayHello('world');
+		const url = new URL(request.url);
+		let path = url.pathname.split('/');
+		path.splice(0, 1);
 
-		return new Response(greeting);
+		switch (path[0]) {
+			case 'ws': {
+				const id = env.MY_DURABLE_OBJECT.idFromName('foo');
+				const stub = env.MY_DURABLE_OBJECT.get(id);
+				return stub.fetch(request);
+			}
+			default:
+				return new Response('Hello from the api', { status: 200 });
+		}
 	},
 };

@@ -8,7 +8,7 @@
 	"main": "src/index.js",
 	"compatibility_date": "2025-06-27",
 	"assets": {
-		"directory": "./public"
+		"directory": "./client"
 	},
 	"durable_objects": {
 		"bindings": [
@@ -20,9 +20,7 @@
 	},
 	"migrations": [
 		{
-			"new_sqlite_classes": [
-				"MyDurableObject"
-			],
+			"new_sqlite_classes": ["MyDurableObject"],
 			"tag": "v1"
 		}
 	],
