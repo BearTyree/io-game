@@ -20,15 +20,15 @@
 	},
 	"migrations": [
 		{
-			"new_sqlite_classes": ["GameServer"],
-			"tag": "v1"
+			"tag": "v3"
+			// "deleted_classes": ["MyDurableObject"]
 		}
 	],
 	"observability": {
 		"enabled": true
 	},
 	"triggers": {
-		"crons": ["*/5 * * * *"] // runs every hour
+		"crons": ["*/5 * * * *"]
 	}
 	/**
 	 * Smart Placement

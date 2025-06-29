@@ -60,6 +60,8 @@ class Menu extends Phaser.Scene {
 					this.nameInput = null;
 				}
 
+				console.log(matchStartedAt);
+
 				if (matchStartedAt) {
 					const now = new Date();
 					const startedAt = new Date(matchStartedAt);

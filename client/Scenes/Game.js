@@ -665,6 +665,7 @@ class GameScene extends Phaser.Scene {
 		});
 		title.setScrollFactor(0);
 		title.setDepth(9999);
+
 		this.scoreboardTexts.push(title);
 		scores.sort((a, b) => b.kills - a.kills);
 		for (let i = 0; i < scores.length; i++) {

@@ -278,6 +278,8 @@ export class GameServer extends DurableObject {
 				this.sessions.delete(otherWs);
 			}
 		});
+
+		return this.matchStartedAt;
 	}
 }
 
@@ -298,10 +300,12 @@ export default {
 		}
 	},
 
-	async scheduled(event, env, ctx) {
+	async scheduled(controller, env, ctx) {
+		console.log('Cron trigger');
 		const id = env.SERVER.idFromName('main');
 		const stub = env.SERVER.get(id);
-		stub.startNewMatch();
+		console.log(Object.keys(stub));
+		console.log(await stub.startNewMatch());
 	},
 };
 
