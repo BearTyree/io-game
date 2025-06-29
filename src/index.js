@@ -68,7 +68,7 @@ export class MyDurableObject extends DurableObject {
 				const startPosition = { x: Math.random() * -2000 * Math.sign(Math.random() - 0.5) + 1000, y: -100 * Math.random() };
 				let session = this.sessions.get(ws) || {};
 				session.position = startPosition;
-				session.health = 6;
+				session.health = 20;
 
 				this.sessions.set(ws, session);
 				ws.serializeAttachment(session);

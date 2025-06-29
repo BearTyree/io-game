@@ -18,7 +18,7 @@ class GameScene extends Phaser.Scene {
 		this.fireRate = 10;
 		this.canDoubleJump = true;
 		this.firstJumpInput = true;
-		this.health = 6;
+		this.health = 20;
 		this.wasPlayerOnGround = false;
 	}
 
@@ -31,13 +31,13 @@ class GameScene extends Phaser.Scene {
 	}
 
 	preload() {
-		this.load.image('sky', 'assets/sky.png');
+		this.load.image('sky', './Assets/sky.png');
 	}
 
 	create() {
 		this.canDoubleJump = true;
 		this.firstJumpInput = true;
-		this.health = 6;
+		this.health = 20;
 		this.wasPlayerOnGround = false;
 		this.cameras.main.roundPx = true;
 		this.input.manager.canvas.style.cursor = 'none';
@@ -87,7 +87,7 @@ class GameScene extends Phaser.Scene {
 		this.player = this.add.rectangle(this.startX, this.startY, 32, 48, 0x000000);
 		this.matter.add.gameObject(this.player);
 		this.player.setFriction(0.1);
-		this.player.setBounce(0.1);
+		this.player.setBounce(0);
 		this.player.setFixedRotation();
 
 		this.cursors = this.input.keyboard.createCursorKeys();
@@ -173,32 +173,19 @@ class GameScene extends Phaser.Scene {
 			this.spawnEnemy(enemy.position.x, enemy.position.y, enemy.id, enemy.health);
 		});
 
-		// Matter.js collision event for ground check
-		this.matter.world.on('collisionactive', (event) => {
-			this.isPlayerOnGround = false;
-			for (const pair of event.pairs) {
-				if (
-					(pair.bodyA.gameObject === this.player && this.platforms.includes(pair.bodyB.gameObject)) ||
-					(pair.bodyB.gameObject === this.player && this.platforms.includes(pair.bodyA.gameObject))
-				) {
-					// Check if player is above the platform (simple y check)
-					if (this.player.body.velocity.y >= 0) {
-						this.isPlayerOnGround = true;
-					}
+		// --- Replace collision event for ground check ---
+		this.isPlayerOnGround = false;
+		this.player.body.onCollideCallback = (pair) => {
+			if (this.platforms.includes(pair.bodyB.gameObject) || this.platforms.includes(pair.bodyA.gameObject)) {
+				if (this.player.body.velocity.y >= 0) {
+					this.isPlayerOnGround = true;
 				}
-
-				this.enemies.forEach((enemy) => {
-					if (
-						(pair.bodyA.gameObject === enemy && this.platforms.includes(pair.bodyB.gameObject)) ||
-						(pair.bodyB.gameObject === enemy && this.platforms.includes(pair.bodyA.gameObject))
-					) {
-						if (enemy.body.velocity.y >= 0) {
-							enemy.isOnGround = true;
-						}
-					}
-				});
 			}
-		});
+		};
+		this.player.body.onCollideEndCallback = () => {
+			this.isPlayerOnGround = false;
+		};
+
 		this.time.addEvent({
 			delay: 3000,
 			callback: () => {
@@ -227,7 +214,7 @@ class GameScene extends Phaser.Scene {
 		const healthBarHeight = 10;
 		const healthBarX = 10;
 		const healthBarY = 10;
-		const healthPercent = this.health / 6;
+		const healthPercent = this.health / 20;
 		this.uiGraphics.fillRect(healthBarX, healthBarY, healthBarMaxWidth * healthPercent, healthBarHeight);
 	}
 
@@ -235,9 +222,9 @@ class GameScene extends Phaser.Scene {
 		let enemy = this.add.rectangle(x, y, 32, 48, 0xff0000);
 		this.matter.add.gameObject(enemy, { isStatic: false });
 		enemy.setFriction(0.1);
-		enemy.setBounce(0.1);
-		enemy.health = health || 6;
-		enemy.maxHealth = 6;
+		enemy.setBounce(0);
+		enemy.health = health || 20;
+		enemy.maxHealth = 20;
 		enemy.id = id;
 		enemy.healthBar = this.add.graphics();
 		enemy.healthBar.setDepth(1002);
@@ -252,7 +239,6 @@ class GameScene extends Phaser.Scene {
 	}
 
 	update(time, delta) {
-		console.log(this.player.x, this.player.y);
 		if (!this.uiGraphics) {
 			this.uiGraphics = this.add.graphics();
 			this.uiGraphics.setScrollFactor(0);
@@ -268,7 +254,7 @@ class GameScene extends Phaser.Scene {
 		const healthBarHeight = 10;
 		const healthBarX = 10;
 		const healthBarY = 10;
-		const healthPercent = this.health / 6;
+		const healthPercent = this.health / 20;
 		this.uiGraphics.fillStyle(0x00ff00, 1);
 		this.uiGraphics.fillRect(healthBarX, healthBarY, healthBarMaxWidth * healthPercent, healthBarHeight);
 		const player = this.player;
@@ -286,12 +272,16 @@ class GameScene extends Phaser.Scene {
 			} else {
 				enemy.setVelocityX(0);
 			}
-			if (enemy.up && (enemy.isOnGround || enemy.canDoubleJump) && enemy.firstJumpInput) {
-				enemy.firstJumpInput = false;
-				if (!enemy.isOnGround) {
+			// Robust jump logic for enemy
+			if (enemy.up && enemy.firstJumpInput) {
+				if (enemy.isOnGround) {
+					enemy.setVelocityY(-12);
+					enemy.firstJumpInput = false;
+				} else if (enemy.canDoubleJump) {
+					enemy.setVelocityY(-12);
 					enemy.canDoubleJump = false;
+					enemy.firstJumpInput = false;
 				}
-				enemy.setVelocityY(-12);
 			}
 			if (!enemy.up) {
 				enemy.firstJumpInput = true;
@@ -299,7 +289,7 @@ class GameScene extends Phaser.Scene {
 			if (enemy.isOnGround && !enemy.wasOnGround) {
 				enemy.canDoubleJump = true;
 			}
-			enemy.wasPlayerOnGround = enemy.isPlayerOnGround;
+			enemy.wasOnGround = enemy.isOnGround;
 		});
 
 		if (left) {
@@ -309,16 +299,22 @@ class GameScene extends Phaser.Scene {
 		} else {
 			player.setVelocityX(0);
 		}
-		if (up && (this.isPlayerOnGround || this.canDoubleJump) && this.firstJumpInput) {
-			this.firstJumpInput = false;
-			if (!this.isPlayerOnGround) {
+
+		// Robust jump logic
+		if (up && this.firstJumpInput) {
+			if (this.isPlayerOnGround) {
+				player.setVelocityY(-12);
+				this.firstJumpInput = false;
+			} else if (this.canDoubleJump) {
+				player.setVelocityY(-12);
 				this.canDoubleJump = false;
+				this.firstJumpInput = false;
 			}
-			player.setVelocityY(-12);
 		}
 		if (!up) {
 			this.firstJumpInput = true;
 		}
+		// Only reset canDoubleJump when landing (transition from air to ground)
 		if (this.isPlayerOnGround && !this.wasPlayerOnGround) {
 			this.canDoubleJump = true;
 		}
