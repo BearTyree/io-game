@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Clicker Game Easter Egg</title>
+	</head>
+	<script>
+		let score = 0;
+		let passive = 0;
+		let price = 5;
+
+		function add(amount) {
+			score += amount;
+			let value = document.getElementById('value');
+			value.innerHTML = '$' + Math.round(score).toString();
+		}
+
+		function buyAutoclicker() {
+			if (score >= price) {
+				score -= price;
+
+				passive += 0.1;
+				price += 2;
+
+				let buy = document.getElementById('buy');
+
+				buy.innerHTML = `Buy Autoclicker for ${price} dollars`;
+			}
+		}
+
+		setInterval(() => {
+			add(passive);
+		}, 100);
+	</script>
+	<body>
+		<p>Money:</p>
+		<p id="value">$0</p>
+		<button onclick="add(1)">Add Score</button>
+		<button id="buy" onclick="buyAutoclicker()">Buy Autoclicker for 5 dollars</button>
+	</body>
+</html>

@@ -283,6 +283,46 @@ export class GameServer extends DurableObject {
 	}
 }
 
+export class Egg extends DurableObject {
+	constructor(state, env) {
+		super(state, env);
+		this.env = env;
+		this.state = state;
+		this.storage = state.storage;
+	}
+	async fetch(request) {
+		const url = new URL(request.url);
+		let path = url.pathname.split('/');
+		path.splice(0, 1);
+
+		switch (path[1]) {
+			case 'changeNote': {
+				const { note } = request.json();
+				this.updateNote(note);
+				break;
+			}
+		}
+
+		const oldValue = (await this.storage.get('visitors')) || 0;
+		await this.storage.put('visitors', oldValue + 1);
+
+		const note = (await this.storage.get('note')) || 'nothing';
+
+		return new Response(
+			`<div>${oldValue + 1} ${oldValue + 1 > 1 ? 'people have viewed /' : 'person has viewed /'}${
+				path[0]
+			}</div><div>Note left by the last person to come and change the note: ${note}</div> <div>To change the note, make a post request to this address/changeNote with your new note in the body as "note" (remember to use JSON)</div>`,
+			{
+				headers: { 'Content-Type': 'text/html' },
+			}
+		);
+	}
+
+	async updateNote(note) {
+		await this.storage.put('note', note);
+	}
+}
+
 export default {
 	async fetch(request, env, ctx) {
 		const url = new URL(request.url);
@@ -296,12 +336,13 @@ export default {
 				return stub.fetch(request);
 			}
 			default:
-				return new Response('Hello from the api', { status: 200 });
+				const id = env.EGG.idFromName(path[0]);
+				const stub = env.EGG.get(id);
+				return await stub.fetch(request);
 		}
 	},
 
 	async scheduled(controller, env, ctx) {
-		console.log('Cron trigger');
 		const id = env.SERVER.idFromName('main');
 		const stub = env.SERVER.get(id);
 		console.log(Object.keys(stub));
