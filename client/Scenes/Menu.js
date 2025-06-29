@@ -46,7 +46,7 @@ class Menu extends Phaser.Scene {
 	onSocketMessage(event, data) {
 		switch (event) {
 			case 'start': {
-				const { startPosition } = data;
+				const { startPosition, enemies } = data;
 
 				// Remove name input when starting game
 				if (this.nameInput) {
@@ -54,7 +54,7 @@ class Menu extends Phaser.Scene {
 					this.nameInput = null;
 				}
 
-				this.scene.start('Game', { x: startPosition.x, y: startPosition.y });
+				this.scene.start('Game', { x: startPosition.x, y: startPosition.y, enemies });
 			}
 		}
 	}

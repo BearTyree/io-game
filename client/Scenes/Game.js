@@ -25,6 +25,7 @@ class GameScene extends Phaser.Scene {
 	init(data) {
 		this.startX = data?.x;
 		this.startY = data?.y;
+		this.initialEnemies = data?.enemies;
 	}
 
 	preload() {
@@ -90,51 +91,51 @@ class GameScene extends Phaser.Scene {
 		});
 
 		this.input.keyboard.on('keydown-W', () => {
-			this.game.socket.send(JSON.stringify({ event: 'keydown', data: { key: 'UP' } }));
+			this.game.socket.send(JSON.stringify({ event: 'keydown', data: { key: 'up' } }));
 		});
 
 		this.input.keyboard.on('keyup-W', () => {
-			this.game.socket.send(JSON.stringify({ event: 'keyup', data: { key: 'UP' } }));
+			this.game.socket.send(JSON.stringify({ event: 'keyup', data: { key: 'up' } }));
 		});
 
 		this.input.keyboard.on('keydown-A', () => {
-			this.game.socket.send(JSON.stringify({ event: 'keydown', data: { key: 'LEFT' } }));
+			this.game.socket.send(JSON.stringify({ event: 'keydown', data: { key: 'left' } }));
 		});
 
 		this.input.keyboard.on('keyup-A', () => {
-			this.game.socket.send(JSON.stringify({ event: 'keyup', data: { key: 'LEFT' } }));
+			this.game.socket.send(JSON.stringify({ event: 'keyup', data: { key: 'left' } }));
 		});
 
 		this.input.keyboard.on('keydown-D', () => {
-			this.game.socket.send(JSON.stringify({ event: 'keydown', data: { key: 'RIGHT' } }));
+			this.game.socket.send(JSON.stringify({ event: 'keydown', data: { key: 'right' } }));
 		});
 
 		this.input.keyboard.on('keyup-D', () => {
-			this.game.socket.send(JSON.stringify({ event: 'keyup', data: { key: 'RIGHT' } }));
+			this.game.socket.send(JSON.stringify({ event: 'keyup', data: { key: 'right' } }));
 		});
 
 		this.input.keyboard.on('keydown-LEFT', () => {
-			this.game.socket.send(JSON.stringify({ event: 'keydown', data: { key: 'LEFT' } }));
+			this.game.socket.send(JSON.stringify({ event: 'keydown', data: { key: 'left' } }));
 		});
 
 		this.input.keyboard.on('keyup-LEFT', () => {
-			this.game.socket.send(JSON.stringify({ event: 'keyup', data: { key: 'LEFT' } }));
+			this.game.socket.send(JSON.stringify({ event: 'keyup', data: { key: 'left' } }));
 		});
 
 		this.input.keyboard.on('keydown-RIGHT', () => {
-			this.game.socket.send(JSON.stringify({ event: 'keydown', data: { key: 'RIGHT' } }));
+			this.game.socket.send(JSON.stringify({ event: 'keydown', data: { key: 'right' } }));
 		});
 
 		this.input.keyboard.on('keyup-RIGHT', () => {
-			this.game.socket.send(JSON.stringify({ event: 'keyup', data: { key: 'RIGHT' } }));
+			this.game.socket.send(JSON.stringify({ event: 'keyup', data: { key: 'right' } }));
 		});
 
 		this.input.keyboard.on('keydown-UP', () => {
-			this.game.socket.send(JSON.stringify({ event: 'keydown', data: { key: 'UP' } }));
+			this.game.socket.send(JSON.stringify({ event: 'keydown', data: { key: 'up' } }));
 		});
 
 		this.input.keyboard.on('keyup-UP', () => {
-			this.game.socket.send(JSON.stringify({ event: 'keyup', data: { key: 'UP' } }));
+			this.game.socket.send(JSON.stringify({ event: 'keyup', data: { key: 'up' } }));
 		});
 
 		this.enemies = [];
@@ -160,6 +161,10 @@ class GameScene extends Phaser.Scene {
 
 		this.isPlayerOnGround = false;
 
+		this.initialEnemies.forEach((enemy) => {
+			this.spawnEnemy(enemy.position.x, enemy.position.y, enemy.id);
+		});
+
 		// Matter.js collision event for ground check
 		this.matter.world.on('collisionactive', (event) => {
 			this.isPlayerOnGround = false;
@@ -173,12 +178,31 @@ class GameScene extends Phaser.Scene {
 						this.isPlayerOnGround = true;
 					}
 				}
+
+				this.enemies.forEach((enemy) => {
+					if (
+						(pair.bodyA.gameObject === enemy && this.platforms.includes(pair.bodyB.gameObject)) ||
+						(pair.bodyB.gameObject === enemy && this.platforms.includes(pair.bodyA.gameObject))
+					) {
+						if (enemy.body.velocity.y >= 0) {
+							enemy.isOnGround = true;
+						}
+					}
+				});
 			}
+		});
+		this.time.addEvent({
+			delay: 3000,
+			callback: () => {
+				this.game.socket.send(JSON.stringify({ event: 'position', data: { position: { x: this.player.x, y: this.player.y } } }));
+			},
+			callbackScope: this,
+			loop: true,
 		});
 	}
 
 	spawnEnemy(x, y, id, username) {
-		let enemy = this.add.rectangle(x, y, 32, 32, 0xff0000);
+		let enemy = this.add.rectangle(x, y, 32, 48, 0xff0000);
 		this.matter.add.gameObject(enemy, { isStatic: false });
 		enemy.setFriction(0.1);
 		enemy.setBounce(0.1);
@@ -188,6 +212,11 @@ class GameScene extends Phaser.Scene {
 		enemy.username = username;
 		enemy.healthBar = this.add.graphics();
 		enemy.healthBar.setDepth(1002);
+		enemy.setFriction(0.1);
+		enemy.setBounce(0.1);
+		enemy.setFixedRotation();
+		enemy.canDoubleJump = true;
+		enemy.firstJumpInput = true;
 		this.enemies.push(enemy);
 		return enemy;
 	}
@@ -201,12 +230,25 @@ class GameScene extends Phaser.Scene {
 		let up = cursors.up.isDown || wasd.up.isDown;
 
 		this.enemies.forEach((enemy) => {
-			if (left) {
-				player.setVelocityX(-5);
-			} else if (right) {
-				player.setVelocityX(5);
+			if (enemy.left) {
+				enemy.setVelocityX(-5);
+			} else if (enemy.right) {
+				enemy.setVelocityX(5);
 			} else {
-				player.setVelocityX(0);
+				enemy.setVelocityX(0);
+			}
+			if (enemy.up && (enemy.isOnGround || enemy.canDoubleJump) && enemy.firstJumpInput) {
+				enemy.firstJumpInput = false;
+				if (!enemy.isOnGround) {
+					enemy.canDoubleJump = false;
+				}
+				enemy.setVelocityY(-12);
+			}
+			if (!enemy.up) {
+				enemy.firstJumpInput = true;
+			}
+			if (enemy.isPlayerOnGround) {
+				enemy.canDoubleJump = true;
 			}
 		});
 
@@ -297,6 +339,20 @@ class GameScene extends Phaser.Scene {
 		});
 	}
 
+	enemyShoot(start, hitPoint) {
+		const graphics = this.add.graphics();
+		graphics.lineStyle(3, 0xffff00, 1);
+		graphics.beginPath();
+		graphics.moveTo(start.x, start.y);
+		graphics.lineTo(hitPoint.x, hitPoint.y);
+		graphics.strokePath();
+		graphics.fillStyle(0xffff00, 1);
+		graphics.fillCircle(hitPoint.x, hitPoint.y, 20);
+		this.time.delayedCall(1000 / (this.fireRate * 10), () => {
+			graphics.destroy();
+		});
+	}
+
 	shootRay(pointer) {
 		if (!this.player.active) return;
 		this.shootTimer = 1000 / this.fireRate;
@@ -350,6 +406,10 @@ class GameScene extends Phaser.Scene {
 		if (hitEnemy) {
 			hitEnemy.health -= 1;
 			if (hitEnemy.health <= 0) {
+				this.enemies.splice(
+					this.enemies.findIndex((e) => e.id == hitEnemy.id),
+					1
+				);
 				hitEnemy.healthBar.destroy();
 				this.showEnemyKilledText(hitEnemy.x, hitEnemy.y);
 				hitEnemy.destroy();
@@ -366,6 +426,7 @@ class GameScene extends Phaser.Scene {
 		graphics.fillStyle(0xffff00, 1);
 		graphics.fillCircle(this.player.x + Math.cos(shotAngle) * 70, this.player.y + Math.sin(shotAngle) * 70, 20);
 		graphics.fillCircle(hitPoint.x, hitPoint.y, 20);
+		this.game.socket.send(JSON.stringify({ event: 'shoot', data: { start, hitPoint } }));
 
 		let recoilAngle = shotAngle + Math.PI;
 		let recoilDistance = 300;
@@ -426,7 +487,7 @@ class GameScene extends Phaser.Scene {
 				break;
 			}
 			case 'enemy_keydown': {
-				const { key } = data;
+				const { id, key } = data;
 				const enemy = this.enemies.find((e) => e.id === id);
 				if (enemy) {
 					enemy[key] = true;
@@ -434,10 +495,27 @@ class GameScene extends Phaser.Scene {
 				break;
 			}
 			case 'enemy_keyup': {
-				const { key } = data;
+				const { id, key } = data;
 				const enemy = this.enemies.find((e) => e.id === id);
 				if (enemy) {
 					enemy[key] = false;
+				}
+				break;
+			}
+			case 'enemy_position': {
+				const { id, position } = data;
+				const enemy = this.enemies.find((e) => e.id === id);
+				if (enemy) {
+					enemy.x = position.x;
+					enemy.y = position.y;
+				}
+				break;
+			}
+			case 'enemy_shoot': {
+				const { id, start, hitPoint } = data;
+				const enemy = this.enemies.find((e) => e.id === id);
+				if (enemy) {
+					this.enemyShoot(start, hitPoint);
 				}
 				break;
 			}

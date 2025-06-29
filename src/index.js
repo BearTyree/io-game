@@ -86,26 +86,84 @@ export class MyDurableObject extends DurableObject {
 				});
 
 				const enemies = Array.from(this.sessions.entries())
-					.filter(([otherWs]) => otherWs !== ws)
-					.map(([, session]) => session);
-
+					.map((entry) => entry[1])
+					.filter((enemy) => enemy.position && enemy.id != session.id);
 				ws.send(JSON.stringify({ event: 'start', data: { startPosition, enemies } }));
+				break;
+			}
+			case 'keydown': {
+				const { key } = data;
+				let session = this.sessions.get(ws) || {};
+
+				session[key] = true;
+
+				this.sessions.set(ws, session);
+				ws.serializeAttachment(session);
+
+				const update = { id: session.id, key };
+				this.sessions.forEach((_, otherWs) => {
+					if (otherWs !== ws) {
+						try {
+							otherWs.send(JSON.stringify({ event: 'enemy_keydown', data: update }));
+						} catch (error) {
+							this.sessions.delete(otherWs);
+						}
+					}
+				});
+				break;
+			}
+			case 'keyup': {
+				const { key } = data;
+				let session = this.sessions.get(ws) || {};
+
+				session[key] = false;
+
+				this.sessions.set(ws, session);
+				ws.serializeAttachment(session);
+
+				const update = { id: session.id, key };
+				this.sessions.forEach((_, otherWs) => {
+					if (otherWs !== ws) {
+						try {
+							otherWs.send(JSON.stringify({ event: 'enemy_keyup', data: update }));
+						} catch (error) {
+							this.sessions.delete(otherWs);
+						}
+					}
+				});
 				break;
 			}
 			case 'position': {
 				const { position } = data;
 				let session = this.sessions.get(ws) || {};
 
-				session.position = position;
+				session.position.x = position.x;
+				session.position.y = position.y;
 
 				this.sessions.set(ws, session);
 				ws.serializeAttachment(session);
 
-				const update = { id: session.id, username: session.username, position };
+				const update = { id: session.id, position };
 				this.sessions.forEach((_, otherWs) => {
 					if (otherWs !== ws) {
 						try {
-							otherWs.send(JSON.stringify({ event: 'enemy_move', data: update }));
+							otherWs.send(JSON.stringify({ event: 'enemy_position', data: update }));
+						} catch (error) {
+							this.sessions.delete(otherWs);
+						}
+					}
+				});
+				break;
+			}
+			case 'shoot': {
+				const { start, hitPoint } = data;
+				let session = this.sessions.get(ws) || {};
+
+				const update = { id: session.id, start, hitPoint };
+				this.sessions.forEach((_, otherWs) => {
+					if (otherWs !== ws) {
+						try {
+							otherWs.send(JSON.stringify({ event: 'enemy_shoot', data: update }));
 						} catch (error) {
 							this.sessions.delete(otherWs);
 						}
