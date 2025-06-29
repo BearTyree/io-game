@@ -30,6 +30,7 @@ class GameScene extends Phaser.Scene {
 		this.health = data?.health;
 		this.username = data?.username;
 		this.kills = data?.kills;
+		this.matchStartedAt = data?.matchStartedAt;
 	}
 
 	preload() {
@@ -201,7 +202,9 @@ class GameScene extends Phaser.Scene {
 		this.isPlayerOnGround = false;
 
 		this.initialEnemies.forEach((enemy) => {
-			this.spawnEnemy(enemy.position.x, enemy.position.y, enemy.id, enemy.health);
+			if (enemy.health > 0) {
+				this.spawnEnemy(enemy.position.x, enemy.position.y, enemy.id, enemy.health);
+			}
 		});
 
 		this.isPlayerOnGround = false;
@@ -404,6 +407,14 @@ class GameScene extends Phaser.Scene {
 			enemy.healthBar.fillStyle(0x00ff00, 1);
 			enemy.healthBar.fillRect(enemy.x - barWidth / 2 + 1, enemy.y - 28 + 1, (barWidth - 2) * healthPercent, barHeight - 2);
 		});
+
+		const now = new Date();
+		const startedAt = new Date(this.matchStartedAt);
+		const diffMs = now - startedAt;
+		if (diffMs > 1000 * 60 * 4.666) {
+			this.scene.start('EndScreen', { scoreboard: [...this.enemyScores, { username: this.username, kills: this.kills }] });
+			return;
+		}
 	}
 
 	showEnemyKilledText(x, y) {

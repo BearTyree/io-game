@@ -27,6 +27,18 @@ class EndScreen extends Phaser.Scene {
 	onSocketMessage(event, data) {
 		switch (event) {
 			case 'start_match': {
+				const { startPosition, username, enemies, id, health, kills, matchStartedAt } = data;
+				this.scene.start('Game', {
+					x: startPosition.x,
+					y: startPosition.y,
+					enemies,
+					id,
+					health,
+					username: username,
+					kills,
+					matchStartedAt,
+				});
+				break;
 			}
 		}
 	}

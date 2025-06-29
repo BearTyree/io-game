@@ -64,12 +64,22 @@ class Menu extends Phaser.Scene {
 					const now = new Date();
 					const startedAt = new Date(matchStartedAt);
 					const diffMs = now - startedAt;
-					if (diffMs > 280000) {
+					if (diffMs > 1000 * 60 * 4.666) {
 						this.scene.start('EndScreen', { scoreboard: [...enemies, { username: playerName, kills }] });
 						return;
 					}
 				}
-				this.scene.start('Game', { x: startPosition.x, y: startPosition.y, enemies, id, health, username: playerName, kills });
+				this.scene.start('Game', {
+					x: startPosition.x,
+					y: startPosition.y,
+					enemies,
+					id,
+					health,
+					username: playerName,
+					kills,
+					matchStartedAt,
+				});
+				break;
 			}
 		}
 	}
