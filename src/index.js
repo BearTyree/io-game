@@ -48,7 +48,7 @@ export class MyDurableObject extends DurableObject {
 
 	async handleSession(ws) {
 		this.state.acceptWebSocket(ws);
-		this.sessions.set(ws);
+		this.sessions.set(ws, { id: crypto.randomUUID() });
 	}
 
 	async webSocketClose(ws) {
@@ -63,12 +63,67 @@ export class MyDurableObject extends DurableObject {
 	async webSocketMessage(ws, message, env) {
 		const { event, data } = JSON.parse(message);
 
-		console.log(event, data);
+		switch (event) {
+			case 'start': {
+				const { username } = data;
+				const startPosition = { x: Math.random() * -2000 * Math.sign(Math.random() - 0.5) + 1000, y: -100 * Math.random() };
+				let session = this.sessions.get(ws) || {};
+				session.username = username;
+				session.position = startPosition;
 
-		// switch (event) {
-		// 	case 'admin': {
-		// 	}
-		// }
+				this.sessions.set(ws, session);
+				ws.serializeAttachment(session);
+
+				const join = { id: session.id, username: session.username, position: startPosition };
+				this.sessions.forEach((_, otherWs) => {
+					if (otherWs !== ws) {
+						try {
+							otherWs.send(JSON.stringify({ event: 'enemy_join', data: join }));
+						} catch (error) {
+							this.sessions.delete(otherWs);
+						}
+					}
+				});
+
+				const enemies = Array.from(this.sessions.entries())
+					.filter(([otherWs]) => otherWs !== ws)
+					.map(([, session]) => session);
+
+				ws.send(JSON.stringify({ event: 'start', data: { startPosition, enemies } }));
+				break;
+			}
+			case 'position': {
+				const { position } = data;
+				let session = this.sessions.get(ws) || {};
+
+				session.position = position;
+
+				this.sessions.set(ws, session);
+				ws.serializeAttachment(session);
+
+				const update = { id: session.id, username: session.username, position };
+				this.sessions.forEach((_, otherWs) => {
+					if (otherWs !== ws) {
+						try {
+							otherWs.send(JSON.stringify({ event: 'enemy_move', data: update }));
+						} catch (error) {
+							this.sessions.delete(otherWs);
+						}
+					}
+				});
+				break;
+			}
+		}
+	}
+
+	async broadcastMessage(event, data) {
+		this.sessions.forEach((_, ws) => {
+			try {
+				ws.send(JSON.stringify({ event, data }));
+			} catch (error) {
+				this.sessions.delete(ws);
+			}
+		});
 	}
 }
 

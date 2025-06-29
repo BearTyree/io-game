@@ -16,7 +16,6 @@
 		<script src="Scenes/Game.js"></script>
 		<script type="text/javascript">
 			const socket = new WebSocket('ws://localhost:8787/ws');
-			socket.onopen = () => console.log('hi');
 			var config = {
 				type: Phaser.AUTO,
 				scale: {
@@ -26,9 +25,9 @@
 					height: window.innerHeight,
 				},
 				physics: {
-					default: 'arcade',
-					arcade: {
-						gravity: { y: 300 },
+					default: 'matter',
+					matter: {
+						gravity: { y: 1 }, // adjust as needed
 						debug: false,
 					},
 				},
@@ -38,6 +37,15 @@
 			};
 			var game = new Phaser.Game(config);
 			game.socket = socket;
+
+			socket.onmessage = (e) => {
+				const { event, data } = JSON.parse(e.data);
+				game.scene.getScenes().forEach((scene) => {
+					if (typeof scene.onSocketMessage === 'function') {
+						scene.onSocketMessage(event, data);
+					}
+				});
+			};
 		</script>
 	</body>
 </html>
