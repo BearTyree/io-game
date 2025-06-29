@@ -84,7 +84,17 @@ export class GameServer extends DurableObject {
 					.map((entry) => entry[1])
 					.filter((enemy) => enemy.position && enemy.id != session.id);
 				ws.send(
-					JSON.stringify({ event: 'start', data: { startPosition, enemies, id: session.id, health: session.health, kills: session.kills } })
+					JSON.stringify({
+						event: 'start',
+						data: {
+							matchStartedAt: this.matchStartedAt,
+							startPosition,
+							enemies,
+							id: session.id,
+							health: session.health,
+							kills: session.kills,
+						},
+					})
 				);
 				break;
 			}
@@ -229,7 +239,42 @@ export class GameServer extends DurableObject {
 		});
 	}
 
-	async startNewMatch() {}
+	async startNewMatch() {
+		this.matchStartedAt = new Date().toISOString();
+		this.saveState();
+
+		this.sessions.forEach((_, ws) => {
+			const startPosition = { x: Math.random() * -2000 * Math.sign(Math.random() - 0.5) + 1000, y: -100 * Math.random() };
+			let session = this.sessions.get(ws) || {};
+			session.position = startPosition;
+			session.health = 20;
+
+			this.sessions.set(ws, session);
+			ws.serializeAttachment(session);
+
+			const enemies = Array.from(this.sessions.entries())
+				.map((entry) => entry[1])
+				.filter((enemy) => enemy.position && enemy.id != session.id);
+
+			try {
+				otherWs.send(
+					JSON.stringify({
+						event: 'start_match',
+						data: {
+							matchStartedAt: this.matchStartedAt,
+							startPosition,
+							enemies,
+							id: session.id,
+							health: session.health,
+							kills: session.kills,
+						},
+					})
+				);
+			} catch (error) {
+				this.sessions.delete(otherWs);
+			}
+		});
+	}
 }
 
 export default {

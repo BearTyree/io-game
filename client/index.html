@@ -39,6 +39,7 @@
 	<body>
 		<script src="Scenes/Menu.js"></script>
 		<script src="Scenes/Game.js"></script>
+		<script src="Scenes/EndScreen.js"></script>
 		<script type="text/javascript">
 			const socket = new WebSocket('/ws');
 			function sendChat(chat) {
@@ -59,7 +60,7 @@
 						debug: false,
 					},
 				},
-				scene: [window.Menu, window.Game],
+				scene: [window.Menu, window.Game, window.EndScreen],
 				canvasStyle: `display: block; width: 100%; height: 100%;`,
 				autoFocus: true,
 			};

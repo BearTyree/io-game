@@ -1,7 +1,6 @@
 class GameScene extends Phaser.Scene {
 	constructor() {
 		super({ key: 'Game' });
-		// State variables
 		this.player = null;
 		this.platforms = [];
 		this.cursors = null;
@@ -116,7 +115,6 @@ class GameScene extends Phaser.Scene {
 			this.platforms.push(rect);
 		});
 
-		// Player with Matter.js
 		this.player = this.add.rectangle(this.startX, this.startY, 32, 48, 0x000000);
 		this.matter.add.gameObject(this.player);
 		this.player.setFriction(0);
@@ -229,7 +227,6 @@ class GameScene extends Phaser.Scene {
 
 		this.scale.on('resize', this.resize, this);
 
-		// Reset or recreate the health bar graphics on respawn
 		if (this.uiGraphics) {
 			this.uiGraphics.destroy();
 		}
@@ -241,7 +238,7 @@ class GameScene extends Phaser.Scene {
 		this.uiGraphics.setScrollFactor(0);
 		this.uiGraphics.setDepth(9999);
 		this.uiGraphics.fillStyle(0x00ff00, 1);
-		// Draw green health bar based on current health
+
 		const healthBarMaxWidth = 500;
 		const healthBarHeight = 10;
 		const healthBarX = 10;
@@ -249,7 +246,6 @@ class GameScene extends Phaser.Scene {
 		const healthPercent = this.health / 20;
 		this.uiGraphics.fillRect(healthBarX, healthBarY, healthBarMaxWidth * healthPercent, healthBarHeight);
 
-		// Scoreboard setup
 		this.scoreboardTexts = [];
 		this.updateScoreboard([...this.enemyScores, { username: this.username, kills: this.kills }]);
 	}
@@ -291,10 +287,10 @@ class GameScene extends Phaser.Scene {
 		} else {
 			this.uiGraphics.clear();
 		}
-		// Draw background
+
 		this.uiGraphics.fillStyle(0x000000, 1);
 		this.uiGraphics.fillRect(5, 5, 510, 20);
-		// Draw green health bar based on current health
+
 		const healthBarMaxWidth = 500;
 		const healthBarHeight = 10;
 		const healthBarX = 10;
@@ -317,7 +313,7 @@ class GameScene extends Phaser.Scene {
 			} else {
 				enemy.setVelocityX(0);
 			}
-			// Robust jump logic for enemy
+
 			if (enemy.up && enemy.firstJumpInput) {
 				if (enemy.isOnGround) {
 					enemy.setVelocityY(-12);
@@ -345,7 +341,6 @@ class GameScene extends Phaser.Scene {
 			player.setVelocityX(0);
 		}
 
-		// Robust jump logic
 		if (up && this.firstJumpInput) {
 			if (this.isPlayerOnGround) {
 				player.setVelocityY(-12);
@@ -359,7 +354,7 @@ class GameScene extends Phaser.Scene {
 		if (!up) {
 			this.firstJumpInput = true;
 		}
-		// Only reset canDoubleJump when landing (transition from air to ground)
+
 		if (this.isPlayerOnGround && !this.wasPlayerOnGround) {
 			this.canDoubleJump = true;
 		}
@@ -644,12 +639,10 @@ class GameScene extends Phaser.Scene {
 	}
 
 	updateScoreboard(scores) {
-		// Remove old scoreboard texts
 		if (this.scoreboardTexts && this.scoreboardTexts.length) {
 			this.scoreboardTexts.forEach((text) => text.destroy());
 		}
 		this.scoreboardTexts = [];
-		// Display new scoreboard
 		const startX = this.scale.width - 250;
 		const startY = 20;
 		const lineHeight = 28;

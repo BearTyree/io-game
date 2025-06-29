@@ -52,7 +52,7 @@ class Menu extends Phaser.Scene {
 	onSocketMessage(event, data) {
 		switch (event) {
 			case 'start': {
-				const { startPosition, enemies, id, health, kills } = data;
+				const { startPosition, enemies, id, health, kills, matchStartedAt } = data;
 				const playerName = this.nameInput ? this.nameInput.value : '';
 
 				if (this.nameInput) {
@@ -60,6 +60,15 @@ class Menu extends Phaser.Scene {
 					this.nameInput = null;
 				}
 
+				if (matchStartedAt) {
+					const now = new Date();
+					const startedAt = new Date(matchStartedAt);
+					const diffMs = now - startedAt;
+					if (diffMs > 280000) {
+						this.scene.start('EndScreen', { scoreboard: [...enemies, { username: playerName, kills }] });
+						return;
+					}
+				}
 				this.scene.start('Game', { x: startPosition.x, y: startPosition.y, enemies, id, health, username: playerName, kills });
 			}
 		}
