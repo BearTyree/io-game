@@ -28,6 +28,7 @@ class GameScene extends Phaser.Scene {
 		this.initialEnemies = data?.enemies;
 		this.id = data?.id;
 		this.health = data?.health;
+		this.username = data?.username;
 	}
 
 	preload() {
@@ -609,7 +610,7 @@ class GameScene extends Phaser.Scene {
 				if (id == this.id) {
 					this.health -= 1;
 					if (this.health < 1) {
-						this.scene.start('Menu');
+						this.scene.start('Menu', { username: this.username });
 					}
 					return;
 				}

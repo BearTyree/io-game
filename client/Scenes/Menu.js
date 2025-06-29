@@ -3,6 +3,9 @@ class Menu extends Phaser.Scene {
 		super({ key: 'Menu' });
 	}
 
+	init(data) {
+		this.username = data?.username;
+	}
 	preload() {}
 
 	create() {
@@ -14,21 +17,19 @@ class Menu extends Phaser.Scene {
 			})
 			.setOrigin(0.5);
 
-		// Create an HTML input for the player name
 		this.nameInput = document.createElement('input');
 		this.nameInput.type = 'text';
 		this.nameInput.placeholder = 'Enter your name';
+		this.nameInput.value = this.username || '';
 		this.nameInput.style.position = 'absolute';
 		this.nameInput.style.width = '200px';
 		this.nameInput.style.fontSize = '24px';
 
-		// Append to the Phaser canvas parent (container)
 		const parent = this.game.canvas.parentNode;
 		parent.appendChild(this.nameInput);
 
-		// Position input relative to the canvas
 		this.nameInput.style.left = `${this.scale.width / 2 - 100}px`;
-		this.nameInput.style.top = `${this.scale.height / 2 - 70}px`; // Move input higher to avoid overlap
+		this.nameInput.style.top = `${this.scale.height / 2 - 70}px`;
 
 		const startButton = this.add
 			.text(this.scale.width / 2, this.scale.height / 2, 'Start Game', {
@@ -52,14 +53,14 @@ class Menu extends Phaser.Scene {
 		switch (event) {
 			case 'start': {
 				const { startPosition, enemies, id, health } = data;
+				const playerName = this.nameInput ? this.nameInput.value : '';
 
-				// Remove name input when starting game
 				if (this.nameInput) {
 					document.body.removeChild(this.nameInput);
 					this.nameInput = null;
 				}
 
-				this.scene.start('Game', { x: startPosition.x, y: startPosition.y, enemies, id, health });
+				this.scene.start('Game', { x: startPosition.x, y: startPosition.y, enemies, id, health, username: playerName });
 			}
 		}
 	}
